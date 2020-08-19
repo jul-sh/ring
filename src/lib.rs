@@ -116,6 +116,9 @@ pub mod rand;
 #[cfg(feature = "alloc")]
 mod rsa;
 
+#[cfg(feature = "alloc")]
+pub mod dh;
+
 pub mod signature;
 
 mod sealed {
