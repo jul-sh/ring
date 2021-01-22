@@ -19,17 +19,17 @@
 //! Dh algrithem
 //!
 //! ```
-//! struct M {}
 //! use ring::dh::*;
 //! use ring::rand;
 //! let param = &DHPARAM_FFDHE2048;
 //! let rng = rand::SystemRandom::new();
-//! let my_private_key = DhContext::<M>::new(param, &rng);
+//! let my_private_key = DhContext::new(param, &rng);
 //! let my_public_key = my_private_key.compute_public_key();
 //!
-//! let peer_private_key = DhContext::<M>::new(param, &rng);
+//! let peer_public_key_buffer = [0u8; MAX_PUBLIC_KEY_LEN];
+//! let peer_private_key = DhContext::new(param, &rng);
 //! let peer_public_key = {
-//!     peer_private_key.compute_public_key()
+//!     peer_private_key.compute_public_key(&mut peer_public_key_buffer[..])
 //! };
 //!
 //! let secret_key1 = my_private_key.compute_shared_key(&peer_public_key);
@@ -41,7 +41,12 @@ use crate::rand;
 use crate::arithmetic::bigint::*;
 use crate::arithmetic::montgomery::{Unencoded,R};
 use alloc::vec::Vec;
-use alloc::string::String;
+
+
+/// MAX_PUB_LICKEY_LEN for DH
+pub const MAX_PUBLIC_KEY_LEN : usize = 1024usize;
+/// MAX_SECRET_LEN for DH
+pub const MAX_SECRET_LEN : usize = 64usize;
 
 /// Indicates the dhparam
 pub struct DhParam {
@@ -217,7 +222,7 @@ pub static DHPARAM_FFDHE8192: DhParam = DhParam {
     name: "ffdhe8192"
 };
 
-fn from_hex_digit(d: u8) -> Result<u8, String> {
+fn from_hex_digit(d: u8) -> Result<u8, &'static str> {
     if d >= b'0' && d <= b'9' {
         Ok(d - b'0')
     } else if d >= b'a' && d <= b'f' {
@@ -226,16 +231,14 @@ fn from_hex_digit(d: u8) -> Result<u8, String> {
         Ok(d - b'A' + 10u8)
     } else {
         // Err(format!("Invalid hex digit '{}'", d as char))
-        Err(String::from("Invalid hex digit"))
+        Err("Invalid hex digit")
     }
 }
 
 /// Get bytes from hex string
-pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
+pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, &'static str> {
     if hex_str.len() % 2 != 0 {
-        return Err(String::from(
-            "Hex string does not have an even number of digits",
-        ));
+        return Err("Hex string does not have an even number of digits");
     }
 
     let mut result = Vec::with_capacity(hex_str.len() / 2);
@@ -249,67 +252,125 @@ pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
 
 /// Dhcontext
 /// Dh
-pub struct DhContext<T> {
-    a: PrivateExponent<T>,                // private key
-    ap: Elem<T>,                          // public key
-    p: Modulus<T>,                        // prime
+pub struct DhContext {
+    a: PrivateExponent<()>,                // private key
+    ap: Elem<()>,                          // public key
+    p: Modulus<()>,                        // prime
 }
 
 fn into_encoded<T>(a: Elem<T, Unencoded>, m: &Modulus<T>) -> Elem<T, R> {
     elem_mul(m.oneRR().as_ref(), a, m)
 }
 
-impl<T> DhContext<T> {
+impl DhContext {
     /// new a DhContext
-    pub fn new(param: &'static DhParam, rng: &dyn rand::SecureRandom) -> Self {
-        let mut a_vec = Vec::<u8>::new();
-        a_vec.resize(param.secret_len, 0u8);
-        let _ = rng.fill(a_vec.as_mut_slice()).unwrap();
+    pub fn new(param: &'static DhParam, rng: &dyn rand::SecureRandom) -> Option<Self> {
+        let mut a = [0u8; MAX_SECRET_LEN];
 
-        a_vec[param.secret_len-1] |= 1;
+        let a = &mut a[0..param.secret_len];
+        rng.fill(a).ok()?;
+
+        a[param.secret_len-1] |= 1;
 
         let p = {
-            let (value, _) = Modulus::<T>::from_be_bytes_with_bit_length(
-                untrusted::Input::from(&from_hex(param.p).unwrap())
-            ).unwrap();
-                value
+            let inputhex = &from_hex(param.p).ok()?;
+            let input = untrusted::Input::from(inputhex);
+            let v = Modulus::<()>::from_be_bytes_with_bit_length(
+            input).ok()?;
+            v.0
         };
 
         let a = {
-            PrivateExponent::<T>::from_be_bytes_padded(untrusted::Input::from(a_vec.as_slice()), &p).unwrap()
-
+            PrivateExponent::<()>::from_be_bytes_padded(untrusted::Input::from(a), &p).ok()?
         };
 
-        let g: Elem<T,Unencoded> =  Elem::<T>::from_be_bytes_padded(
+        let g: Elem<(),Unencoded> =  Elem::<()>::from_be_bytes_padded(
             untrusted::Input::from(
                 &from_hex(param.g).unwrap()
-        ),&p).unwrap();
+        ),&p).ok()?;
 
         let g = into_encoded(g, &p);
-        let ap = elem_exp_consttime(g, &a, &p).unwrap();
-        DhContext {
-            a,
-            ap,
-            p
-        }
+        let ap = elem_exp_consttime(g, &a, &p).ok()?;
+        Some(DhContext {a, ap, p})
     }
 
     /// get public key bytes
-    pub fn compute_public_key(&self) -> Vec<u8> {
-        self.ap.to_bytes_be()
+    pub fn compute_public_key<'a>(&self, buffer: &'a mut [u8]) -> &'a [u8] {
+        let pubkey = self.ap.to_bytes_be();
+        let pubkey_slice = pubkey.as_slice();
+        let len = pubkey.len();
+        let res = &mut buffer[0..len];
+        res.copy_from_slice(pubkey_slice);
+        res
     }
 
     /// get share key bytes
-    pub fn compute_shared_key(&self, _peer_public_key: &Vec<u8>) -> Vec<u8> {
+    pub fn compute_shared_key(&self, _peer_public_key: &[u8]) -> Vec<u8> {
         // let peer_public_key = BigUint::from_bytes_le(peer_public_key);
         // peer_public_key.modpow(&self.a, &self.p).to_bytes_le()
         let p = {&self.p};
         let a = {&self.a};
-        let peer_public_key: Elem<T,Unencoded> = Elem::<T>::from_be_bytes_padded(
+        let peer_public_key: Elem<(),Unencoded> = Elem::<()>::from_be_bytes_padded(
             untrusted::Input::from(_peer_public_key), p).unwrap();
 
         let peer_public_key = into_encoded(peer_public_key, &p);
         let r = elem_exp_consttime(peer_public_key, a, p).unwrap();
         r.to_bytes_be()
+    }
+}
+
+/// Performs a key agreement with an ephemeral private key and the given public
+/// key.
+pub fn agree_ephemeral<F, R>(
+    my_private_key: DhContext,
+    peer_public_key: &[u8],
+    kdf: F,
+) -> Option<R>
+where
+    F: FnOnce(&[u8]) -> Option<R>
+{
+    let secret_key = my_private_key.compute_shared_key(peer_public_key);
+    kdf(secret_key.as_slice())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::dh::*;
+    use crate::rand;
+    #[test]
+    fn test_dh1() {
+        let param = &DHPARAM_FFDHE2048;
+        let rng = rand::SystemRandom::new();
+        let my_private_key = DhContext::new(param, &rng).unwrap();
+        let mut my_public_key_buffer = [0; MAX_PUBLIC_KEY_LEN];
+        let my_public_key = my_private_key.compute_public_key(&mut my_public_key_buffer[..]);
+
+        let peer_private_key = DhContext::new(param, &rng).unwrap();
+        let mut peer_public_key_buffer = [0; MAX_PUBLIC_KEY_LEN];
+        let peer_public_key = {
+            peer_private_key.compute_public_key(&mut peer_public_key_buffer[..])
+        };
+
+        let secret_key1 = my_private_key.compute_shared_key(&peer_public_key);
+        let secret_key2 = peer_private_key.compute_shared_key(&my_public_key);
+        assert_eq!(secret_key1, secret_key2);
+    }
+
+    #[test]
+    fn test_dh2() {
+        let param = &DHPARAM_FFDHE3072;
+        let rng = rand::SystemRandom::new();
+        let my_private_key = DhContext::new(param, &rng).unwrap();
+
+        let mut peer_public_key_buffer = [0u8; MAX_PUBLIC_KEY_LEN];
+        let peer_public_key = {
+            let peer_private_key = DhContext::new(param, &rng).unwrap();
+            peer_private_key.compute_public_key(&mut peer_public_key_buffer[..])
+        };
+
+        let _ = agree_ephemeral(my_private_key, peer_public_key,|_shared_key| {
+
+            Some(())
+        });
     }
 }
