@@ -135,5 +135,5 @@ mod sealed {
 }
 
 /// TBD: Discuss how to upstream this work around
-#[cfg(any(target_os="uefi"))]
+#[cfg(any(target_os = "uefi"))]
 mod uefi_stub;

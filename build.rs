@@ -584,7 +584,8 @@ fn cc(
     // poly1305_vec.c requires <emmintrin.h> which requires <stdlib.h>.
     if (target.arch == "wasm32" && target.os == "unknown")
         || (target.os == "linux" && is_musl && target.arch != "x86_64"
-        || target.os == "uefi" || target.os == "none")
+            || target.os == "uefi"
+            || target.os == "none")
     {
         if let Ok(compiler) = c.try_get_compiler() {
             // TODO: Expand this to non-clang compilers in 0.17.0 if practical.
@@ -721,7 +722,11 @@ fn asm_path(out_dir: &Path, src: &Path, os: Option<&str>, perlasm_format: &str) 
     let src_stem = src.file_stem().expect("source file without basename");
 
     let dst_stem = src_stem.to_str().unwrap();
-    let dst_extension = if os == Some("windows") || os == Some("uefi") { "asm" } else { "S" };
+    let dst_extension = if os == Some("windows") || os == Some("uefi") {
+        "asm"
+    } else {
+        "S"
+    };
     let dst_filename = format!("{}-{}.{}", dst_stem, perlasm_format, dst_extension);
     out_dir.join(dst_filename)
 }

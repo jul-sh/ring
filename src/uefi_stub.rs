@@ -21,7 +21,5 @@
 ///
 /// This is a work around for it.
 #[no_mangle]
-#[export_name="__imp_RtlVirtualUnwind"]
-pub extern fn RtlVirtualUnwind()
-{
-}
+#[export_name = "__imp_RtlVirtualUnwind"]
+pub extern "C" fn RtlVirtualUnwind() {}

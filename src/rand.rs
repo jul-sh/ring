@@ -444,7 +444,7 @@ mod uefi {
 
     pub fn fill(dest: &mut [u8]) -> Result<(), error::Unspecified> {
         // TBD: discuss how to generate random bytes
-        for i in 0.. dest.len() {
+        for i in 0..dest.len() {
             dest[i] = i as u8;
         }
         Ok(())
@@ -457,7 +457,7 @@ mod uefi {
 
     pub fn fill(dest: &mut [u8]) -> Result<(), error::Unspecified> {
         // TBD: discuss how to generate random bytes
-        for i in 0.. dest.len() {
+        for i in 0..dest.len() {
             dest[i] = i as u8;
         }
         Ok(())
