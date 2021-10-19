@@ -144,7 +144,7 @@ impl<T> RandomlyConstructable for T where T: self::sealed::RandomlyConstructable
 ///
 /// [`getrandom`]: http://man7.org/linux/man-pages/man2/getrandom.2.html
 ///
-/// On UEFI, `fill` is implemented using `CRYPTO_rdrand`
+/// On UEFI and `target_os=none`,, `fill` is implemented using `CRYPTO_rdrand`
 /// & `CRYPTO_rdrand_multiple8_buf` which provided by BoringSSL.
 ///
 #[derive(Clone, Debug)]
@@ -200,8 +200,8 @@ use self::darwin::fill as fill_impl;
 #[cfg(any(target_os = "fuchsia"))]
 use self::fuchsia::fill as fill_impl;
 
-#[cfg(any(target_os = "uefi"))]
-use self::uefi::fill as fill_impl;
+#[cfg(any(target_os = "uefi", target_os = "none"))]
+use self::no_std::fill as fill_impl;
 
 #[cfg(any(target_os = "android", target_os = "linux"))]
 mod sysrand_chunk {
@@ -427,8 +427,8 @@ mod fuchsia {
     }
 }
 
-#[cfg(any(target_os = "uefi"))]
-mod uefi {
+#[cfg(any(target_os = "uefi", target_os = "none"))]
+mod no_std {
     use crate::error;
 
     pub fn fill(dest: &mut [u8]) -> Result<(), error::Unspecified> {

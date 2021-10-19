@@ -272,6 +272,7 @@ const LINUX_ABI: &[&str] = &[
     "linux",
     "redox",
     "solaris",
+    "none"
 ];
 
 /// Operating systems that have the same ABI as macOS on every architecture
@@ -633,7 +634,7 @@ fn cc(file: &Path, ext: &str, target: &Target, include_dir: &Path, out_file: &Pa
     }
 
     // UEFI is a baremental freestanding environment without stdlib.
-    let freestanding = target.os == UEFI;
+    let freestanding = target.os == UEFI || target.os == "none";
 
     // Allow cross-compiling without a target sysroot for these targets.
     //
