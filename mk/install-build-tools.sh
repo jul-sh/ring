@@ -74,22 +74,16 @@ case $target in
   # The version of wasm-bindgen-cli must match the wasm-bindgen version.
   wasm_bindgen_version=$(cargo metadata --format-version 1 | jq -r '.packages | map(select( .name == "wasm-bindgen")) | map(.version) | .[0]')
   cargo install wasm-bindgen-cli --vers "$wasm_bindgen_version" --bin wasm-bindgen-test-runner
-  case ${features-} in
-    *wasm32_c*)
-      use_clang=1
-      ;;
-    *)
-      ;;
-  esac
+  use_clang=1
   ;;
 --target=*)
   ;;
 esac
 
 if [ -n "$use_clang" ]; then
-  # https://github.com/rust-lang/rust/pull/79365 upgraded the coverage file
-  # format to one that only LLVM 11+ can use
-  llvm_version=12
+  # https://github.com/rustls/rustls/pull/1009 upgraded Rust's LLVM version to
+  # 14
+  llvm_version=14
   sudo apt-key add mk/llvm-snapshot.gpg.key
   sudo add-apt-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-$llvm_version main"
   sudo apt-get update

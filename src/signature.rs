@@ -191,23 +191,24 @@
 //! ```
 //!
 //! ```
-//! use ring::{rand, signature};
+//! # #[cfg(feature = "std")]
+//! use ring::{rand, rsa, signature};
 //!
 //! # #[cfg(feature = "std")]
 //! fn sign_and_verify_rsa(private_key_path: &std::path::Path,
 //!                        public_key_path: &std::path::Path)
 //!                        -> Result<(), MyError> {
-//! // Create an `RsaKeyPair` from the DER-encoded bytes. This example uses
+//! // Create an RSA keypair from the DER-encoded bytes. This example uses
 //! // a 2048-bit key, but larger keys are also supported.
 //! let private_key_der = read_file(private_key_path)?;
-//! let key_pair = signature::RsaKeyPair::from_der(&private_key_der)
+//! let key_pair = rsa::KeyPair::from_der(&private_key_der)
 //!     .map_err(|_| MyError::BadPrivateKey)?;
 //!
 //! // Sign the message "hello, world", using PKCS#1 v1.5 padding and the
 //! // SHA256 digest algorithm.
 //! const MESSAGE: &'static [u8] = b"hello, world";
 //! let rng = rand::SystemRandom::new();
-//! let mut signature = vec![0; key_pair.public().n().len().as_usize_bytes_rounded_up()];
+//! let mut signature = vec![0; key_pair.public().modulus_len()];
 //! key_pair.sign(&signature::RSA_PKCS1_SHA256, &rng, MESSAGE, &mut signature)
 //!     .map_err(|_| MyError::OOM)?;
 //!
@@ -282,7 +283,6 @@ pub use crate::rsa::{
         RsaEncoding, RSA_PKCS1_SHA256, RSA_PKCS1_SHA384, RSA_PKCS1_SHA512, RSA_PSS_SHA256,
         RSA_PSS_SHA384, RSA_PSS_SHA512,
     },
-    signing::RsaKeyPair,
     verification::{
         RsaPublicKeyComponents, RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY,
         RSA_PKCS1_1024_8192_SHA256_FOR_LEGACY_USE_ONLY,
@@ -293,6 +293,11 @@ pub use crate::rsa::{
     },
     RsaParameters,
 };
+
+/// An RSA key pair, used for signing.
+#[cfg(feature = "alloc")]
+#[deprecated = "Use `rsa::KeyPair`"]
+pub type RsaKeyPair = crate::rsa::KeyPair;
 
 /// A public key signature returned from a signing operation.
 #[derive(Clone, Copy)]

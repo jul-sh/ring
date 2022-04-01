@@ -49,6 +49,16 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+/// A prime modulus.
+///
+/// # Safety
+///
+/// Some logic may assume a `Prime` number is non-zero, and thus a non-empty
+/// array of limbs, or make similar assumptions. TODO: Any such logic should
+/// be encapsulated here, or this trait should be made non-`unsafe`. TODO:
+/// non-zero-ness and non-empty-ness should be factored out into a separate
+/// trait. (In retrospect, this shouldn't have been made an `unsafe` trait
+/// preemptively.)
 pub unsafe trait Prime {}
 
 struct Width<M> {
@@ -153,19 +163,42 @@ impl<M> BoxedLimbs<M> {
 
 /// A modulus *s* that is smaller than another modulus *l* so every element of
 /// ℤ/sℤ is also an element of ℤ/lℤ.
+///
+/// # Safety
+///
+/// Some logic may assume that the invariant holds when accessing limbs within
+/// a value, e.g. by assuming the larger modulus has at least as many limbs.
+/// TODO: Any such logic should be encapsulated here, or this trait should be
+/// made non-`unsafe`. (In retrospect, this shouldn't have been made an `unsafe`
+/// trait preemptively.)
 pub unsafe trait SmallerModulus<L> {}
 
 /// A modulus *s* where s < l < 2*s for the given larger modulus *l*. This is
 /// the precondition for reduction by conditional subtraction,
 /// `elem_reduce_once()`.
+///
+/// # Safety
+///
+/// Some logic may assume that the invariant holds when accessing limbs within
+/// a value, e.g. by assuming that the smaller modulus is at most one limb
+/// smaller than the larger modulus. TODO: Any such logic should be
+/// encapsulated here, or this trait should be made non-`unsafe`. (In retrospect,
+/// this shouldn't have been made an `unsafe` trait preemptively.)
 pub unsafe trait SlightlySmallerModulus<L>: SmallerModulus<L> {}
 
 /// A modulus *s* where √l <= s < l for the given larger modulus *l*. This is
 /// the precondition for the more general Montgomery reduction from ℤ/lℤ to
 /// ℤ/sℤ.
+///
+/// # Safety
+///
+/// Some logic may assume that the invariant holds when accessing limbs within
+/// a value. TODO: Any such logic should be encapsulated here, or this trait
+/// should be made non-`unsafe`. (In retrospect, this shouldn't have been made
+/// an `unsafe` trait preemptively.)
 pub unsafe trait NotMuchSmallerModulus<L>: SmallerModulus<L> {}
 
-pub unsafe trait PublicModulus {}
+pub trait PublicModulus {}
 
 /// The x86 implementation of `bn_mul_mont`, at least, requires at least 4
 /// limbs. For a long time we have required 4 limbs for all targets, though
@@ -1386,7 +1419,7 @@ mod tests {
     // Type-level representation of an arbitrary modulus.
     struct M {}
 
-    unsafe impl PublicModulus for M {}
+    impl PublicModulus for M {}
 
     #[test]
     fn test_elem_exp_consttime() {
